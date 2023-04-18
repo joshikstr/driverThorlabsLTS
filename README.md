@@ -2,12 +2,18 @@
 control Thorlabs long travel stages (LTS) via MATLAB by using the Thorlabs .Net DLLs from Kinesis Software
 
 example:
-a = LTS.listdevices;  % list devices
-lts_1 = LTS;          % create LTS object
-connect(lts_1,a{1})   % connect first device in list of devices
-home(lts_1)           % home the lts
-movetopos(lts_1,50)   % move the lts to the position 50 mm
-disconnect(lts_1)     % disconnect the lts
+% list devices
+a = LTS.listdevices;
+% create LTS object
+lts_1 = LTS;
+% connect first device in list of devices
+connect(lts_1,a{1})
+% home the lts
+home(lts_1)
+% move the lts to the position 50 mm
+movetopos(lts_1,50)
+% disconnect the lts
+disconnect(lts_1)
 
 (more methods to come)
 
