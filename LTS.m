@@ -212,6 +212,35 @@ classdef LTS < handle
             updatestatus(h);        % Update status variables from device
         end
 
+        function runsequence(h,sequence)
+            % 'runsequence()' runs a sequence of positions (opt. with velocity
+            % and acceleration) given by a cell array
+            %
+            % example:
+            % sequence = cell(3,1);         % create empty cell array
+            % sequence{1} = 50;             % 1st position 50mm
+            % sequence{2} = [70, 5]         % 2st position 70mm and 5mm/s
+            % sequence{3} = [150, 30, 40]   % 3st position 150mm, 30mm/s
+            %                               % and 40mm/s^2 
+            % runsequence(lts,sequence)     % run sequence
+            %
+            if ~isa(sequence,'cell')
+                error(['expected datatype is cell for sequence and not ', class(sequence)]);
+            end
+            
+            for pstamp = 1:length(sequence)
+                switch length(sequence{pstamp}) 
+                    case 1  % only position given
+                        movetopos(h,sequence{pstamp})   
+                    case 2  % position and velocity given
+                        movetopos(h,sequence{pstamp}(1),sequence{pstamp}(2))
+                    case 3  % position, velocity and acceleration given
+                        movetopos(h,sequence{pstamp}(1),sequence{pstamp}(2),sequence{pstamp}(3))
+                end
+                updatestatus(h) % update status variables from devic
+            end
+        end
+
         function updatestatus(h) 
             % 'updatestatus()' updates recorded device parameters in MATLAB by reading them from the lts
 
