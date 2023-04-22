@@ -264,17 +264,17 @@ classdef LTS < handle
             % 
             % example:
             % SN = LTS.listdevices;
-            motor.loaddlls; % Load DLLs
+            LTS.loaddlls; % Load DLLs
             Thorlabs.MotionControl.DeviceManagerCLI.DeviceManagerCLI.BuildDeviceList();  % build device list
             serialNumbersNet = Thorlabs.MotionControl.DeviceManagerCLI.DeviceManagerCLI.GetDeviceList(); % get device list
             serialNumbers=cell(ToArray(serialNumbersNet)); % convert serial numbers to cell array
         end
         function loaddlls() % load DLLs
-            if ~exist(motor.DEVICEMANAGERCLASSNAME,'class')
+            if ~exist(LTS.DEVICEMANAGERCLASSNAME,'class')
                 try   % load in DLLs if not already loaded
-                    NET.addAssembly([motor.MOTORPATHDEFAULT,motor.DEVICEMANAGERDLL]);
-                    NET.addAssembly([motor.MOTORPATHDEFAULT,motor.GENERICMOTORDLL]);
-                    NET.addAssembly([motor.MOTORPATHDEFAULT,motor.INTEGSTEPDLL]); 
+                    NET.addAssembly([LTS.MOTORPATHDEFAULT,LTS.DEVICEMANAGERDLL]);
+                    NET.addAssembly([LTS.MOTORPATHDEFAULT,LTS.GENERICMOTORDLL]);
+                    NET.addAssembly([LTS.MOTORPATHDEFAULT,LTS.INTEGSTEPDLL]); 
                 catch % DLLs did not load
                     error('unable to load .NET assemblies')
                 end
