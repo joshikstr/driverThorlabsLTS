@@ -26,6 +26,7 @@ classdef LTS < handle
 
        % DLL files to be loaded
        DEVICEMANAGERDLL='Thorlabs.MotionControl.DeviceManagerCLI.dll';
+       DEVICEMANAGERCLASSNAME='Thorlabs.MotionControl.DeviceManagerCLI.DeviceManagerCLI'
        GENERICMOTORDLL='Thorlabs.MotionControl.GenericMotorCLI.dll';          
        INTEGSTEPDLL='Thorlabs.MotionControl.IntegratedStepperMotorsCLI.dll' 
 
