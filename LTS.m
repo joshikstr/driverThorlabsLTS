@@ -197,17 +197,23 @@ classdef LTS < handle
                 case 1  % If no parameters specified, set both velocity and acceleration to default values
                     velpars.MaxVelocity=h.DEFAULTVEL;
                     velpars.Acceleration=h.DEFAULTACC;
-                case 2  % If just one parameter, set the velocity  
+                case 2  % If just one parameter, set the velocity
+                    if varargin{1} > 50
+                        warning('velocity >50 mm/s outside specification')
+                        varargin{1} = 50;
+                    end
                     velpars.MaxVelocity=varargin{1};
                 case 3  % If two parameters, set both velocitu and acceleration
+                    if varargin{1} > 50
+                        warning('velocity >50 mm/s outside specification')
+                        varargin{1} = 50;
+                    end
+                    if varargin{2} > 50
+                        warning('acceleration >50 mm/s^2 outside specification')
+                        varargin{2} = 50;
+                    end
                     velpars.MaxVelocity=varargin{1};  % Set velocity parameter via .NET interface
                     velpars.Acceleration=varargin{2}; % Set acceleration parameter via .NET interface
-            end
-            if System.Decimal.ToDouble(velpars.MaxVelocity)>50  % Allow velocity to be outside range, but issue warning
-                warning('velocity >50 mm/s outside specification')
-            end
-            if System.Decimal.ToDouble(velpars.Acceleration)>50 % Allow acceleration to be outside range, but issue warning
-                warning('acceleration >50 mm/s^2 outside specification')
             end
             h.deviceNET.SetVelocityParams(velpars); % Set velocity and acceleration paraneters via .NET interface
             updatestatus(h);        % Update status variables from device
