@@ -101,6 +101,8 @@ classdef LTS < handle
             else % Device is already connected
                 error('device is already connected.')
             end
+            h.deviceNET.DisableDevice;  % bigfix often init device not enabled 
+            h.deviceNET.EnableDevice;
             updatestatus(h);   % Update status variables from device
         end
 
