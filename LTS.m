@@ -4,12 +4,12 @@ classdef LTS < handle
     %
     % Example:
     % SN = LTS.listdevices;     % list connected devices
-    % lts_1 = LTS;              % create a LTS object  
-    % connect(lts_1, SN{1})     % connect the first device in the list of devices
-    % home(lts_1)               % home the lts
-    % movetopos(lts_1,10)       % move the lts to position 10mm
-    % movetopos(lts_1,30,40)    % move the lts to position 30mm with 40mm/s
-    % disconnect(lts1)          % disconnect device
+    % lts = LTS;                % create a LTS object  
+    % lts.connect(SN{1})        % connect the first device in the list of devices
+    % lts.home                  % home the lts
+    % lts.movetopos(10)         % move the lts to position 10mm
+    % lts.movetopos(30,40)      % move the lts to position 30mm with 40mm/s
+    % lts.disconnect            % disconnect device
     % 
     % by Joshua Köster 
     %
@@ -63,123 +63,138 @@ classdef LTS < handle
             LTS.loaddlls; % load DLLs (if not already loaded)
         end
 
-        function connect(h,serialNo)  
-            % 'connect()' initializes the LTS based on the serial number and starts polling
+        function connect(self,serialNo)  
+            % initialize and enable the LTS based on the serial number and start polling
             %
             % example:
             % lts = LTS;        % create a object 'lts' of class 'LTS'
-            % connect(lts, SN)  % connect the LTS which corresponds to the
+            % lts.connect(SN)   % connect the LTS which corresponds to the
             %                   % serial number 'SN'
             %
             % to list serial number of connected devices via USB call:'LTS.listdevices'
             %
-            h.listdevices();    % Use this call to build a device list in case not invoked beforehand
-            if ~h.isconnected
+            self.listdevices();    % Use this call to build a device list in case not invoked beforehand
+            if ~self.isconnected
                 switch(serialNo(1:2))
                     case '45'   % Serial number corresponds to LTS150/LTS300
-                        h.deviceNET=Thorlabs.MotionControl.IntegratedStepperMotorsCLI.LongTravelStage.CreateLongTravelStage(serialNo);   
+                        self.deviceNET=Thorlabs.MotionControl.IntegratedStepperMotorsCLI.LongTravelStage.CreateLongTravelStage(serialNo);   
                     otherwise 
                         error('stage is not a LTS');
                 end    
-                h.deviceNET.Connect(serialNo);          % Connect to device via .NET interface
+                self.deviceNET.Connect(serialNo);          % Connect to device via .NET interface
                 try
-                    if ~h.deviceNET.IsSettingsInitialized() % Wait for IsSettingsInitialized via .NET interface
-                        h.deviceNET.WaitForSettingsInitialized(h.TIMEOUTSETTINGS);
+                    if ~self.deviceNET.IsSettingsInitialized() % Wait for IsSettingsInitialized via .NET interface
+                        self.deviceNET.WaitForSettingsInitialized(self.TIMEOUTSETTINGS);
                     end
-                    if ~h.deviceNET.IsSettingsInitialized() % cannot initialise device
+                    if ~self.deviceNET.IsSettingsInitialized() % cannot initialise device
                         error(['unable to initialise device ',char(serialNo)]);
                     end
-                    h.motorSettingsNET = h.deviceNET.LoadMotorConfiguration(serialNo);  % get motorSettings via .NET interface
-                    h.motorSettingsNET.UpdateCurrentConfiguration();    % update the RealToDeviceUnit converter
-                    MotorDeviceSettings = h.deviceNET.MotorDeviceSettings;
-                    h.deviceNET.SetSettings(MotorDeviceSettings, true, false);
-                    h.deviceInfoNET=h.deviceNET.GetDeviceInfo(); 
-                    h.deviceNET.StartPolling(h.TPOLLING);   % start polling via .NET interface
+                    self.motorSettingsNET = self.deviceNET.LoadMotorConfiguration(serialNo);  % get motorSettings via .NET interface
+                    self.motorSettingsNET.UpdateCurrentConfiguration();    % update the RealToDeviceUnit converter
+                    MotorDeviceSettings = self.deviceNET.MotorDeviceSettings;
+                    self.deviceNET.SetSettings(MotorDeviceSettings, true, false);
+                    self.deviceInfoNET=self.deviceNET.GetDeviceInfo(); 
+                    self.deviceNET.StartPolling(self.TPOLLING);   % start polling via .NET interface
                 catch % cannot initialise device
                     error(['unable to initialise device ',char(serialNo)]);
                 end
             else % Device is already connected
                 error('device is already connected.')
             end
-            updatestatus(h);   % Update status variables from device
+            self.deviceNET.DisableDevice;  % bigfix often init device not enabled 
+            self.deviceNET.EnableDevice;
+            updatestatus(self);   % Update status variables from device
         end
 
-        function disconnect(h) 
-            % 'disconnect()' disconnects the LTS and stops polling
+        function disconnect(self) 
+            % disconnect the LTS and stop polling
             %
             % example:
-            % disconnect(lts)   % disconnect the object 'lts'
+            % lts.disconnect   % disconnect the object 'lts'
             %
-            h.isconnected=h.deviceNET.IsConnected(); % Update isconnected flag via .NET interface
-            if h.isconnected
+            self.isconnected=self.deviceNET.IsConnected(); % Update isconnected flag via .NET interface
+            if self.isconnected
                 try
-                    h.deviceNET.StopPolling();  % stop polling device via .NET interface
-                    h.deviceNET.Disconnect();   % disconnect device via .NET interface
+                    self.deviceNET.StopPolling();  % stop polling device via .NET interface
+                    self.deviceNET.Disconnect();   % disconnect device via .NET interface
                 catch
-                    error(['unable to disconnect device',h.serialnumber]);
+                    error(['unable to disconnect device',self.serialnumber]);
                 end
-                h.isconnected=false;  % update internal flag to say device is no longer connected
+                self.isconnected=false;  % update internal flag to say device is no longer connected
             else % Cannot disconnect because device not connected
                 error('device not connected.')
             end    
         end
 
-        function home(h)              
-            % 'home()' homes the LTS (must be done before any movement with the LTS)
+        function sethomevel(self,varargin)
+            % set homing velocity (>7 mm/s not recommended)
             % 
             % example
-            % home(lts) % homes the object 'lts'
+            % lts.sethomevel(5) % set homing velocity to 5mm/s
+            
+            if varargin{1} > 7
+                warning('homing velocity >7 mm/s not recommended')
+                varargin{1} = 7;
+            end
+            self.deviceNET.SetHomingVelocity(varargin{1})
+        end
+
+        function home(self)              
+            % home the LTS (must be done before any movement with the LTS)
+            % 
+            % example
+            % lts.home % homes the object 'lts'
             %
             msg = 'homing LTS';
             disp(msg);
-            workDone=h.deviceNET.InitializeWaitHandler();     % Initialise Waithandler for timeout
-            h.deviceNET.Home(workDone);                       % Home devce via .NET interface
-            h.deviceNET.Wait(h.TIMEOUTMOVE);                  % Wait for move to finish
-            updatestatus(h);            % Update status variables from device
+            workDone=self.deviceNET.InitializeWaitHandler();     % Initialise Waithandler for timeout
+            self.deviceNET.Home(workDone);                       % Home devce via .NET interface
+            self.deviceNET.Wait(self.TIMEOUTMOVE);                  % Wait for move to finish
+            updatestatus(self);            % Update status variables from device
             disp(repmat(char(8), 1, length(msg)+2));
             disp('LTS homed');
         end
 
-        function movetopos(h,varargin)   
-            % 'movetopos()' moves the LTS to a specific absolute position 
+        function movetopos(self,varargin)   
+            % move the LTS to a specific absolute position 
             % optional with a specific velocity and accerleration
             % 
             % examples
             %
-            % movetopos(lts,5)      % move the object 'lts' to position 5mm
+            % lts.movetopos(5)      % move the object 'lts' to position 5mm
             %
-            % movetopos(lts,5,10)   % move the object 'lts' to position 5mm
+            % lts.movetopos(5,10)   % move the object 'lts' to position 5mm
             %                       % with velocity 10mm/s 
             %
-            % movetopos(lts,5,10,30)% move the object 'lts' to position 5mm
+            % lts.movetopos(5,10,30)% move the object 'lts' to position 5mm
             %                       % with velocity 10mm/s and acceleration
             %                       % 30mm/s^2
             switch(nargin)
                 case 1
-                    disp(['current position of LTS is ', num2str(h.position), 'mm'])
+                    disp(['current position of LTS is ', num2str(self.position), 'mm'])
                 case 2  % first parameter corresponds to aimed position
                     try
                         msg = ['move LTS to ', num2str(varargin{1}), 'mm'];
                         disp(msg)
-                        workDone=h.deviceNET.InitializeWaitHandler(); % Initialise Waithandler for timeout
-                        h.deviceNET.MoveTo(varargin{1}, workDone);       % Move devce to position via .NET interface
-                        h.deviceNET.Wait(h.TIMEOUTMOVE);              % Wait for move to finish
-                        updatestatus(h);        % Update status variables from device
+                        workDone=self.deviceNET.InitializeWaitHandler(); % Initialise Waithandler for timeout
+                        self.deviceNET.MoveTo(varargin{1}, workDone);       % Move devce to position via .NET interface
+                        self.deviceNET.Wait(self.TIMEOUTMOVE);              % Wait for move to finish
+                        updatestatus(self);        % Update status variables from device
                         disp(repmat(char(8), 1, length(msg)+2));
                         disp(['LTS moved to ', num2str(varargin{1}), 'mm'])
                     catch % Device faile to move
-                        error(['unable to move LTS ',h.serialnumber,' to ',num2str(varargin{1})]);
+                        error(['unable to move LTS ',self.serialnumber,' to ',num2str(varargin{1})]);
                     end
                 case 3  % If two parameter, set the velocity  
-                    setvelocity(h, varargin{2})
-                    movetopos(h,varargin{1})
+                    setvelocity(self, varargin{2})
+                    movetopos(self,varargin{1})
                 case 4  % if three parameter set the velocity and acceleration
-                    setvelocity(h, varargin{2}, varargin{3})
-                    movetopos(h,varargin{1})
+                    setvelocity(self, varargin{2}, varargin{3})
+                    movetopos(self,varargin{1})
             end
         end
 
-        function setvelocity(h, varargin)  
+        function setvelocity(self, varargin)  
             % 'setvelocity()' sets velocity and optional acceleration
             % parameters of the LTS
             %
@@ -192,11 +207,11 @@ classdef LTS < handle
             %                       % to 30 mm/s and the acceleration to
             %                       % 40 mm/s^2
             %
-            velpars=h.deviceNET.GetVelocityParams(); % Get existing velocity and acceleration parameters
+            velpars=self.deviceNET.GetVelocityParams(); % Get existing velocity and acceleration parameters
             switch(nargin)
                 case 1  % If no parameters specified, set both velocity and acceleration to default values
-                    velpars.MaxVelocity=h.DEFAULTVEL;
-                    velpars.Acceleration=h.DEFAULTACC;
+                    velpars.MaxVelocity=self.DEFAULTVEL;
+                    velpars.Acceleration=self.DEFAULTACC;
                 case 2  % If just one parameter, set the velocity
                     if varargin{1} > 50
                         warning('velocity >50 mm/s outside specification')
@@ -215,12 +230,12 @@ classdef LTS < handle
                     velpars.MaxVelocity=varargin{1};  % Set velocity parameter via .NET interface
                     velpars.Acceleration=varargin{2}; % Set acceleration parameter via .NET interface
             end
-            h.deviceNET.SetVelocityParams(velpars); % Set velocity and acceleration paraneters via .NET interface
-            updatestatus(h);        % Update status variables from device
+            self.deviceNET.SetVelocityParams(velpars); % Set velocity and acceleration paraneters via .NET interface
+            updatestatus(self);        % Update status variables from device
         end
 
-        function runsequence(h,sequence)
-            % 'runsequence()' runs a sequence of positions (opt. with velocity
+        function runsequence(self,sequence)
+            % run a sequence of positions (opt. with velocity
             % and acceleration) given by a cell array
             %
             % example:
@@ -229,7 +244,7 @@ classdef LTS < handle
             % sequence{2} = [70, 5]         % 2st position 70mm and 5mm/s
             % sequence{3} = [150, 30, 40]   % 3st position 150mm, 30mm/s
             %                               % and 40mm/s^2 
-            % runsequence(lts,sequence)     % run sequence
+            % lts.runsequence(sequence)     % run sequence
             %
             if ~isa(sequence,'cell')
                 error(['expected datatype is cell for sequence and not ', class(sequence)]);
@@ -238,36 +253,45 @@ classdef LTS < handle
             for pstamp = 1:length(sequence)
                 switch length(sequence{pstamp}) 
                     case 1  % only position given
-                        movetopos(h,sequence{pstamp})   
+                        movetopos(self,sequence{pstamp})   
                     case 2  % position and velocity given
-                        movetopos(h,sequence{pstamp}(1),sequence{pstamp}(2))
+                        movetopos(self,sequence{pstamp}(1),sequence{pstamp}(2))
                     case 3  % position, velocity and acceleration given
-                        movetopos(h,sequence{pstamp}(1),sequence{pstamp}(2),sequence{pstamp}(3))
+                        movetopos(self,sequence{pstamp}(1),sequence{pstamp}(2),sequence{pstamp}(3))
                 end
-                updatestatus(h) % update status variables from devic
+                updatestatus(self) % update status variables from devic
             end
         end
 
-        function updatestatus(h) 
-            % 'updatestatus()' updates recorded device parameters in MATLAB by reading them from the lts
+        function updatestatus(self) 
+            % update recorded device parameters in MATLAB by reading them from the lts
 
-            h.isconnected=boolean(h.deviceNET.IsConnected());   % update isconncted flag
-            h.serialnumber=char(h.deviceNET.DeviceID);          % update serial number
-            h.controllername=char(h.deviceInfoNET.Name);        % update controleller name          
-            h.controllerdescription=char(h.deviceInfoNET.Description);  % update controller description
-            h.stagename=char(h.motorSettingsNET.DeviceSettingsName);    % update stagename
-            velocityparams=h.deviceNET.GetVelocityParams();             % update velocity parameter
-            h.acceleration=System.Decimal.ToDouble(velocityparams.Acceleration); % update acceleration parameter
-            h.maxvelocity=System.Decimal.ToDouble(velocityparams.MaxVelocity);   % update max velocit parameter
-            h.minvelocity=System.Decimal.ToDouble(velocityparams.MinVelocity);   % update Min velocity parameter
-            h.position=System.Decimal.ToDouble(h.deviceNET.Position);   % Read current device position
+            self.isconnected=boolean(self.deviceNET.IsConnected());   % update isconncted flag
+            self.serialnumber=char(self.deviceNET.DeviceID);          % update serial number
+            self.controllername=char(self.deviceInfoNET.Name);        % update controleller name          
+            self.controllerdescription=char(self.deviceInfoNET.Description);  % update controller description
+            self.stagename=char(self.motorSettingsNET.DeviceSettingsName);    % update stagename
+            velocityparams=self.deviceNET.GetVelocityParams();             % update velocity parameter
+            self.acceleration=System.Decimal.ToDouble(velocityparams.Acceleration); % update acceleration parameter
+            self.maxvelocity=System.Decimal.ToDouble(velocityparams.MaxVelocity);   % update max velocit parameter
+            self.minvelocity=System.Decimal.ToDouble(velocityparams.MinVelocity);   % update Min velocity parameter
+            self.position=System.Decimal.ToDouble(self.deviceNET.Position);   % Read current device position
+        end
+
+        function delete(self)
+            % disconnects lts by using MATLAB fcn 'clear'
+
+            if self.isconnected
+                 self.disconnect
+            end
+            disp('lts destroyed')
         end
         
     end
 
     methods (Static)
         function serialNumbers=listdevices()  
-            % 'listdevices()' lists serial number(s) of connected device(s)
+            % list serial number(s) of connected device(s)
             % 
             % example:
             % SN = LTS.listdevices;
