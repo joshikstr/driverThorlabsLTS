@@ -126,6 +126,19 @@ classdef LTS < handle
             end    
         end
 
+        function sethomevel(self,varargin)
+            % set homing velocity (>7 mm/s not recommended)
+            % 
+            % example
+            % lts.sethomevel(5) % set homing velocity to 5mm/s
+            
+            if varargin{1} > 7
+                warning('homing velocity >7 mm/s not recommended')
+                varargin{1} = 7;
+            end
+            self.deviceNET.SetHomingVelocity(varargin{1})
+        end
+
         function home(self)              
             % home the LTS (must be done before any movement with the LTS)
             % 
